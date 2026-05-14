@@ -8,6 +8,9 @@ import cv2
 import re
 from datetime import datetime
 import wikipedia
+import warnings
+
+warnings.filterwarnings("ignore")
 
 # =========================================================
 # PAGE CONFIG
@@ -64,12 +67,11 @@ translations = {
         "ocr_detection": "OCR Разпознаване",
         "no_allergens": "Няма открити алергени.",
         "nutrition_ok": "Няма сериозни хранителни предупреждения.",
-        "high_sugar": "Засечени са индикатори за високо съдържание на захар.",
+        "high_sugar": "Засечено е високо съдържание на захар.",
         "salt": "Засечена е сол/натрий.",
         "low": "НИСКО",
         "medium": "СРЕДНО",
-        "high": "ВИСОКО",
-        "extended_info": "Разширена информация"
+        "high": "ВИСОКО"
     },
 
     "en": {
@@ -93,77 +95,18 @@ translations = {
         "ocr_detection": "OCR Detection",
         "no_allergens": "No allergens detected.",
         "nutrition_ok": "No major nutrition warnings.",
-        "high_sugar": "High sugar indicators detected.",
+        "high_sugar": "High sugar detected.",
         "salt": "Salt/sodium detected.",
         "low": "LOW",
         "medium": "MEDIUM",
-        "high": "HIGH",
-        "extended_info": "Extended Information"
-    },
-
-    "de": {
-        "title": "🥗 KI Lebensmittel Scanner",
-        "upload": "Bild hochladen",
-        "camera": "Foto aufnehmen",
-        "scan": "Produkt scannen",
-        "detected": "Erkannter Text",
-        "harmful": "Gefundene schädliche Zutaten",
-        "safe": "Keine gefährlichen Zutaten gefunden",
-        "score": "Produktbewertung",
-        "risk": "Risikostufe",
-        "summary": "KI Zusammenfassung",
-        "history": "Verlauf",
-        "allergens": "Allergene",
-        "nutrition": "Nährwertanalyse",
-        "detected_ingredients": "Erkannte Zutaten",
-        "category": "Kategorie",
-        "danger": "Gefahrenstufe",
-        "scanning": "Scannen...",
-        "ocr_detection": "OCR Erkennung",
-        "no_allergens": "Keine Allergene erkannt.",
-        "nutrition_ok": "Keine größeren Ernährungswarnungen.",
-        "high_sugar": "Hoher Zuckergehalt erkannt.",
-        "salt": "Salz/Natrium erkannt.",
-        "low": "NIEDRIG",
-        "medium": "MITTEL",
-        "high": "HOCH",
-        "extended_info": "Erweiterte Informationen"
-    },
-
-    "es": {
-        "title": "🥗 Escáner IA de Ingredientes",
-        "upload": "Subir imagen",
-        "camera": "Tomar foto",
-        "scan": "Escanear producto",
-        "detected": "Texto detectado",
-        "harmful": "Ingredientes dañinos detectados",
-        "safe": "No se detectaron ingredientes peligrosos",
-        "score": "Puntuación del producto",
-        "risk": "Nivel de riesgo",
-        "summary": "Resumen IA",
-        "history": "Historial",
-        "allergens": "Alérgenos",
-        "nutrition": "Análisis nutricional",
-        "detected_ingredients": "Ingredientes detectados",
-        "category": "Categoría",
-        "danger": "Nivel de peligro",
-        "scanning": "Escaneando...",
-        "ocr_detection": "Detección OCR",
-        "no_allergens": "No se detectaron alérgenos.",
-        "nutrition_ok": "No hay advertencias nutricionales importantes.",
-        "high_sugar": "Se detectó alto contenido de azúcar.",
-        "salt": "Se detectó sal/sodio.",
-        "low": "BAJO",
-        "medium": "MEDIO",
-        "high": "ALTO",
-        "extended_info": "Información extendida"
+        "high": "HIGH"
     }
 }
 
-t = translations[LANG]
+t = translations.get(LANG, translations["en"])
 
 # =========================================================
-# HARMFUL INGREDIENTS DATABASE
+# DATABASE
 # =========================================================
 
 harmful_ingredients = {
@@ -172,7 +115,7 @@ harmful_ingredients = {
         "name": "Monosodium Glutamate",
         "bg_name": "Мононатриев глутамат",
         "risk": "May cause headaches and water retention",
-        "bg_risk": "Може да причини главоболие и задържане на вода",
+        "bg_risk": "Може да причини главоболие",
         "level": "medium",
         "category": "Flavor Enhancer",
         "score": -15
@@ -181,8 +124,8 @@ harmful_ingredients = {
     "e407": {
         "name": "Carrageenan",
         "bg_name": "Карагенан",
-        "risk": "May cause inflammation and digestive issues",
-        "bg_risk": "Може да причини възпаления и храносмилателни проблеми",
+        "risk": "May cause inflammation",
+        "bg_risk": "Може да причини възпаления",
         "level": "high",
         "category": "Stabilizer",
         "score": -20
@@ -192,43 +135,23 @@ harmful_ingredients = {
         "name": "Sodium Nitrite",
         "bg_name": "Натриев нитрит",
         "risk": "Linked to cancer risk",
-        "bg_risk": "Свързва се с риск от онкологични заболявания",
+        "bg_risk": "Свързва се с риск от рак",
         "level": "high",
         "category": "Preservative",
         "score": -25
     },
 
-    "e330": {
-        "name": "Citric Acid",
-        "bg_name": "Лимонена киселина",
-        "risk": "May damage tooth enamel",
-        "bg_risk": "Може да увреди зъбния емайл",
-        "level": "low",
-        "category": "Acidity Regulator",
-        "score": -5
-    },
-
-    "e952": {
-        "name": "Cyclamate",
-        "bg_name": "Цикламат",
-        "risk": "Artificial sweetener with controversial effects",
-        "bg_risk": "Изкуствен подсладител със спорни ефекти",
-        "level": "medium",
-        "category": "Sweetener",
-        "score": -15
-    },
-
     "aspartame": {
         "name": "Aspartame",
         "bg_name": "Аспартам",
-        "risk": "Artificial sweetener with controversial effects",
-        "bg_risk": "Изкуствен подсладител с противоречиви ефекти",
+        "risk": "Artificial sweetener",
+        "bg_risk": "Изкуствен подсладител",
         "level": "high",
         "category": "Sweetener",
         "score": -20
     },
 
-    "trans fat": {
+    "transfat": {
         "name": "Trans Fat",
         "bg_name": "Транс мазнини",
         "risk": "Increases cardiovascular risk",
@@ -239,10 +162,6 @@ harmful_ingredients = {
     }
 }
 
-# =========================================================
-# ALLERGENS
-# =========================================================
-
 allergens = [
     "milk",
     "soy",
@@ -250,7 +169,8 @@ allergens = [
     "nuts",
     "peanuts",
     "lactose",
-    "wheat"
+    "wheat",
+    "egg"
 ]
 
 # =========================================================
@@ -258,23 +178,49 @@ allergens = [
 # =========================================================
 
 @st.cache_resource
-def load_reader():
-    return easyocr.Reader(['en', 'bg', 'de', 'es'])
+def load_reader(lang):
 
-reader = load_reader()
+    try:
+
+        if lang == "bg":
+            return easyocr.Reader(['bg', 'en'], gpu=False)
+
+        elif lang == "de":
+            return easyocr.Reader(['de', 'en'], gpu=False)
+
+        elif lang == "es":
+            return easyocr.Reader(['es', 'en'], gpu=False)
+
+        return easyocr.Reader(['en'], gpu=False)
+
+    except Exception as e:
+        st.error(f"OCR Error: {e}")
+        return None
+
+reader = load_reader(LANG)
 
 # =========================================================
-# FUNCTIONS
+# IMAGE PROCESSING
 # =========================================================
 
 def preprocess_image(image):
 
     img = np.array(image)
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # RGBA -> RGB
+    if len(img.shape) == 3 and img.shape[2] == 4:
+        img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
 
+    # RGB -> GRAY
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+
+    # Denoise
     gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
+    # Sharpen
+    gray = cv2.convertScaleAbs(gray, alpha=1.2, beta=0)
+
+    # Threshold
     thresh = cv2.adaptiveThreshold(
         gray,
         255,
@@ -286,27 +232,56 @@ def preprocess_image(image):
 
     return thresh
 
+# =========================================================
+# OCR EXTRACT
+# =========================================================
+
 def extract_text(image):
+
+    if reader is None:
+        return "", []
 
     processed = preprocess_image(image)
 
-    results = reader.readtext(processed)
+    try:
 
-    extracted_text = " ".join([res[1] for res in results])
+        results = reader.readtext(
+            processed,
+            detail=1,
+            paragraph=True
+        )
 
-    return extracted_text, results
+        extracted_text = " ".join([res[1] for res in results])
+
+        return extracted_text, results
+
+    except Exception as e:
+
+        st.error(f"OCR Processing Error: {e}")
+        return "", []
+
+# =========================================================
+# ANALYSIS
+# =========================================================
+
+def normalize_text(text):
+
+    return (
+        text.lower()
+        .replace("-", "")
+        .replace(" ", "")
+        .replace(",", "")
+    )
 
 def analyze_ingredients(text):
 
     found = []
 
-    lower_text = text.lower()
-
-    normalized_text = lower_text.replace("-", "").replace(" ", "")
+    normalized_text = normalize_text(text)
 
     for ingredient, data in harmful_ingredients.items():
 
-        normalized_ingredient = ingredient.replace("-", "").replace(" ", "")
+        normalized_ingredient = normalize_text(ingredient)
 
         if normalized_ingredient in normalized_text:
 
@@ -324,10 +299,11 @@ def detect_allergens(text):
     lower_text = text.lower()
 
     for allergen in allergens:
+
         if allergen in lower_text:
             found.append(allergen)
 
-    return found
+    return list(set(found))
 
 def calculate_score(found_ingredients):
 
@@ -336,19 +312,17 @@ def calculate_score(found_ingredients):
     for item in found_ingredients:
         score += item["data"]["score"]
 
-    score = max(0, min(score, 100))
-
-    return score
+    return max(0, min(score, 100))
 
 def get_score_color(score):
 
     if score >= 75:
-        return "green"
+        return "#22c55e"
 
     elif score >= 45:
-        return "orange"
+        return "#f59e0b"
 
-    return "red"
+    return "#ef4444"
 
 def get_risk_label(score):
 
@@ -362,55 +336,29 @@ def get_risk_label(score):
 
 def generate_summary(score):
 
-    if LANG == "bg":
+    if score >= 75:
+        return "✅ Product appears relatively safe."
 
-        if score >= 75:
-            return "Продуктът изглежда сравнително безопасен."
+    elif score >= 45:
+        return "⚠️ Product contains some potentially harmful ingredients."
 
-        elif score >= 45:
-            return "Продуктът съдържа потенциално вредни съставки."
+    return "🚨 Product contains multiple harmful ingredients."
 
-        return "Продуктът съдържа множество вредни съставки."
+# =========================================================
+# WIKIPEDIA
+# =========================================================
 
-    elif LANG == "de":
-
-        if score >= 75:
-            return "Dieses Produkt scheint relativ sicher zu sein."
-
-        elif score >= 45:
-            return "Dieses Produkt enthält potenziell schädliche Inhaltsstoffe."
-
-        return "Dieses Produkt enthält mehrere schädliche Inhaltsstoffe."
-
-    elif LANG == "es":
-
-        if score >= 75:
-            return "Este producto parece relativamente seguro."
-
-        elif score >= 45:
-            return "Este producto contiene ingredientes potencialmente dañinos."
-
-        return "Este producto contiene múltiples ingredientes dañinos."
-
-    else:
-
-        if score >= 75:
-            return "This product appears relatively safe."
-
-        elif score >= 45:
-            return "This product contains some potentially harmful ingredients."
-
-        return "This product contains multiple harmful ingredients."
-
+@st.cache_data(show_spinner=False)
 def get_extended_info(ingredient):
 
     try:
 
         wikipedia.set_lang("en")
 
-        summary = wikipedia.summary(ingredient, sentences=2)
-
-        return summary
+        return wikipedia.summary(
+            ingredient,
+            sentences=2
+        )
 
     except:
         return None
@@ -422,7 +370,7 @@ def get_extended_info(ingredient):
 st.title(t["title"])
 
 # =========================================================
-# INPUTS
+# FILE INPUT
 # =========================================================
 
 uploaded_file = st.file_uploader(
@@ -435,20 +383,25 @@ camera_image = st.camera_input(t["camera"])
 image = None
 
 if uploaded_file:
-    image = Image.open(uploaded_file)
+
+    image = Image.open(uploaded_file).convert("RGB")
 
 elif camera_image:
-    image = Image.open(camera_image)
+
+    image = Image.open(camera_image).convert("RGB")
 
 # =========================================================
-# MAIN PROCESS
+# MAIN
 # =========================================================
 
 if image is not None:
 
-    st.image(image, use_column_width=True)
+    st.image(
+        image,
+        use_container_width=True
+    )
 
-    if st.button(t["scan"]):
+    if st.button(t["scan"], use_container_width=True):
 
         with st.spinner(t["scanning"]):
 
@@ -479,12 +432,15 @@ if image is not None:
         )
 
         # =====================================================
-        # DETECTED INGREDIENTS
+        # DETECTED WORDS
         # =====================================================
 
         st.subheader(f"🧪 {t['detected_ingredients']}")
 
-        words = re.findall(r'\b[a-zA-ZА-Яа-я0-9\-]+\b', extracted_text)
+        words = re.findall(
+            r'\b[a-zA-ZА-Яа-я0-9\-]+\b',
+            extracted_text
+        )
 
         unique_words = sorted(set(words))
 
@@ -501,10 +457,10 @@ if image is not None:
             <div style="
                 padding:20px;
                 border-radius:15px;
-                background-color:{color};
+                background:{color};
                 color:white;
                 text-align:center;
-                font-size:30px;
+                font-size:32px;
                 font-weight:bold;
             ">
                 {score}/100
@@ -537,15 +493,6 @@ if image is not None:
 
                 data = item["data"]
 
-                if data["level"] == "high":
-                    emoji = "🔴"
-
-                elif data["level"] == "medium":
-                    emoji = "🟡"
-
-                else:
-                    emoji = "🟢"
-
                 ingredient_name = (
                     data["bg_name"]
                     if LANG == "bg"
@@ -558,14 +505,14 @@ if image is not None:
                     else data["risk"]
                 )
 
-                st.markdown(
+                st.error(
                     f"""
-                    ### {emoji} {ingredient_name}
+{ingredient_name}
 
-                    - {t['category']}: {data['category']}
-                    - {t['risk']}: {risk_text}
-                    - {t['danger']}: {data['level'].upper()}
-                    """
+Category: {data['category']}
+Risk: {risk_text}
+Danger: {data['level'].upper()}
+"""
                 )
 
                 extra = get_extended_info(data["name"])
@@ -574,6 +521,7 @@ if image is not None:
                     st.info(extra)
 
         else:
+
             st.success(t["safe"])
 
         # =====================================================
@@ -588,10 +536,11 @@ if image is not None:
                 st.warning(allergen.upper())
 
         else:
+
             st.success(t["no_allergens"])
 
         # =====================================================
-        # NUTRITION ANALYSIS
+        # NUTRITION
         # =====================================================
 
         st.subheader(f"🥦 {t['nutrition']}")
@@ -612,17 +561,11 @@ if image is not None:
             "sodium"
         ]
 
-        for word in sugar_patterns:
+        if any(word in lower_text for word in sugar_patterns):
+            nutrition_notes.append(t["high_sugar"])
 
-            if word in lower_text:
-                nutrition_notes.append(t["high_sugar"])
-                break
-
-        for word in salt_patterns:
-
-            if word in lower_text:
-                nutrition_notes.append(t["salt"])
-                break
+        if any(word in lower_text for word in salt_patterns):
+            nutrition_notes.append(t["salt"])
 
         if nutrition_notes:
 
@@ -630,6 +573,7 @@ if image is not None:
                 st.warning(note)
 
         else:
+
             st.success(t["nutrition_ok"])
 
         # =====================================================
@@ -642,20 +586,28 @@ if image is not None:
 
         for detection in ocr_results:
 
-            bbox = detection[0]
+            try:
 
-            top_left = tuple(map(int, bbox[0]))
-            bottom_right = tuple(map(int, bbox[2]))
+                bbox = detection[0]
 
-            cv2.rectangle(
-                img_array,
-                top_left,
-                bottom_right,
-                (0, 255, 0),
-                2
-            )
+                top_left = tuple(map(int, bbox[0]))
+                bottom_right = tuple(map(int, bbox[2]))
 
-        st.image(img_array, use_column_width=True)
+                cv2.rectangle(
+                    img_array,
+                    top_left,
+                    bottom_right,
+                    (0, 255, 0),
+                    2
+                )
+
+            except:
+                pass
+
+        st.image(
+            img_array,
+            use_container_width=True
+        )
 
         # =====================================================
         # HISTORY
@@ -667,12 +619,15 @@ if image is not None:
             "Date": [datetime.now()],
             "Score": [score],
             "Risk": [risk],
-            "Detected Harmful Ingredients": [len(harmful_found)]
+            "Detected Ingredients": [len(harmful_found)]
         }
 
         history_df = pd.DataFrame(history_data)
 
-        st.dataframe(history_df)
+        st.dataframe(
+            history_df,
+            use_container_width=True
+        )
 
 # =========================================================
 # SIDEBAR
@@ -680,66 +635,17 @@ if image is not None:
 
 st.sidebar.markdown("---")
 
-if LANG == "bg":
+st.sidebar.info(
+    """
+🥗 AI Food Ingredient Scanner
 
-    st.sidebar.info(
-        """
-        🧠 AI Скенер за Съставки
-
-        Функции:
-        - OCR разпознаване
-        - Засичане на вредни съставки
-        - Оценка на риска
-        - Алергени
-        - Камера
-        - BG / EN / DE / ES
-        """
-    )
-
-elif LANG == "de":
-
-    st.sidebar.info(
-        """
-        🧠 KI Zutaten Scanner
-
-        Funktionen:
-        - OCR Erkennung
-        - Schädliche Inhaltsstoffe
-        - Risikoanalyse
-        - Allergene
-        - Kamera
-        - BG / EN / DE / ES
-        """
-    )
-
-elif LANG == "es":
-
-    st.sidebar.info(
-        """
-        🧠 Escáner IA
-
-        Funciones:
-        - OCR
-        - Ingredientes dañinos
-        - Riesgo
-        - Alérgenos
-        - Cámara
-        - BG / EN / DE / ES
-        """
-    )
-
-else:
-
-    st.sidebar.info(
-        """
-        🧠 AI Ingredient Scanner
-
-        Features:
-        - OCR recognition
-        - Harmful ingredient detection
-        - Health score
-        - Allergen detection
-        - Camera support
-        - BG / EN / DE / ES
-        """
-    )
+Features:
+- OCR text recognition
+- Harmful ingredient detection
+- Health score
+- Allergen detection
+- Camera support
+- Multi-language
+- Streamlit Cloud optimized
+"""
+)
