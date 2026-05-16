@@ -23,6 +23,13 @@ st.set_page_config(
 )
 
 # =========================================================
+# SESSION STATE
+# =========================================================
+
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+# =========================================================
 # LANGUAGES
 # =========================================================
 
@@ -64,6 +71,7 @@ translations = {
         "category": "Категория",
         "danger": "Ниво на опасност",
         "scanning": "Сканиране...",
+        "replacement": "По-здравословна алтернатива",
         "ocr_detection": "OCR Разпознаване",
         "no_allergens": "Няма открити алергени.",
         "nutrition_ok": "Няма сериозни хранителни предупреждения.",
@@ -92,6 +100,7 @@ translations = {
         "category": "Category",
         "danger": "Danger level",
         "scanning": "Scanning...",
+        "replacement": "Healthier alternative",
         "ocr_detection": "OCR Detection",
         "no_allergens": "No allergens detected.",
         "nutrition_ok": "No major nutrition warnings.",
@@ -106,7 +115,7 @@ translations = {
 t = translations.get(LANG, translations["en"])
 
 # =========================================================
-# DATABASE
+# HARMFUL INGREDIENTS DATABASE
 # =========================================================
 
 harmful_ingredients = {
@@ -162,6 +171,25 @@ harmful_ingredients = {
     }
 }
 
+# =========================================================
+# HEALTHY REPLACEMENTS
+# =========================================================
+
+healthy_alternatives = {
+    "cola": "Sparkling water with lemon",
+    "chips": "Baked chips",
+    "nutella": "Natural peanut butter",
+    "energy drink": "Green tea",
+    "processed meat": "Fresh grilled chicken",
+    "candy": "Dark chocolate",
+    "soda": "Mineral water",
+    "instant noodles": "Whole grain pasta"
+}
+
+# =========================================================
+# ALLERGENS
+# =========================================================
+
 allergens = [
     "milk",
     "soy",
@@ -205,35 +233,38 @@ reader = load_reader(LANG)
 
 def preprocess_image(image):
 
-    img = np.array(image)
+    try:
 
-    # RGBA -> RGB
-    if len(img.shape) == 3 and img.shape[2] == 4:
-        img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
+        img = np.array(image)
 
-    # RGB -> GRAY
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        if img is None or img.size == 0:
+            return None
 
-    # Denoise
-    gray = cv2.GaussianBlur(gray, (3, 3), 0)
+        if len(img.shape) == 3 and img.shape[2] == 4:
+            img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
 
-    # Sharpen
-    gray = cv2.convertScaleAbs(gray, alpha=1.2, beta=0)
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
-    # Threshold
-    thresh = cv2.adaptiveThreshold(
-        gray,
-        255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY,
-        11,
-        2
-    )
+        gray = cv2.GaussianBlur(gray, (3, 3), 0)
 
-    return thresh
+        gray = cv2.convertScaleAbs(gray, alpha=1.2, beta=0)
+
+        thresh = cv2.adaptiveThreshold(
+            gray,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            11,
+            2
+        )
+
+        return thresh
+
+    except:
+        return None
 
 # =========================================================
-# OCR EXTRACT
+# OCR EXTRACTION
 # =========================================================
 
 def extract_text(image):
@@ -243,15 +274,25 @@ def extract_text(image):
 
     processed = preprocess_image(image)
 
+    if processed is None:
+        return "", []
+
     try:
 
         results = reader.readtext(
             processed,
             detail=1,
-            paragraph=True
+            paragraph=False
         )
 
-        extracted_text = " ".join([res[1] for res in results])
+        results = [
+            r for r in results
+            if r[2] > 0.4
+        ]
+
+        extracted_text = " ".join(
+            [res[1] for res in results]
+        )
 
         return extracted_text, results
 
@@ -291,6 +332,10 @@ def analyze_ingredients(text):
             })
 
     return found
+
+def detect_e_numbers(text):
+
+    return re.findall(r'e\d{3,4}', text.lower())
 
 def detect_allergens(text):
 
@@ -344,6 +389,17 @@ def generate_summary(score):
 
     return "🚨 Product contains multiple harmful ingredients."
 
+def suggest_replacement(text):
+
+    lower = text.lower()
+
+    for key, value in healthy_alternatives.items():
+
+        if key in lower:
+            return value
+
+    return "Fresh natural foods"
+
 # =========================================================
 # WIKIPEDIA
 # =========================================================
@@ -355,10 +411,12 @@ def get_extended_info(ingredient):
 
         wikipedia.set_lang("en")
 
-        return wikipedia.summary(
+        summary = wikipedia.summary(
             ingredient,
             sentences=2
         )
+
+        return summary[:500]
 
     except:
         return None
@@ -378,7 +436,8 @@ uploaded_file = st.file_uploader(
     type=["png", "jpg", "jpeg"]
 )
 
-camera_image = st.camera_input(t["camera"])
+with st.container():
+    camera_image = st.camera_input(t["camera"])
 
 image = None
 
@@ -396,12 +455,15 @@ elif camera_image:
 
 if image is not None:
 
-    st.image(
-        image,
-        use_container_width=True
+    st.image(image, use_container_width=True)
+
+    scan_btn = st.button(
+        t["scan"],
+        use_container_width=True,
+        type="primary"
     )
 
-    if st.button(t["scan"], use_container_width=True):
+    if scan_btn:
 
         with st.spinner(t["scanning"]):
 
@@ -411,6 +473,8 @@ if image is not None:
 
             allergen_found = detect_allergens(extracted_text)
 
+            e_numbers = detect_e_numbers(extracted_text)
+
             score = calculate_score(harmful_found)
 
             color = get_score_color(score)
@@ -419,8 +483,10 @@ if image is not None:
 
             summary = generate_summary(score)
 
+            replacement = suggest_replacement(extracted_text)
+
         # =====================================================
-        # OCR TEXT
+        # DETECTED TEXT
         # =====================================================
 
         st.subheader(f"📝 {t['detected']}")
@@ -432,7 +498,7 @@ if image is not None:
         )
 
         # =====================================================
-        # DETECTED WORDS
+        # DETECTED INGREDIENTS
         # =====================================================
 
         st.subheader(f"🧪 {t['detected_ingredients']}")
@@ -445,6 +511,16 @@ if image is not None:
         unique_words = sorted(set(words))
 
         st.write(", ".join(unique_words[:150]))
+
+        # =====================================================
+        # E NUMBERS
+        # =====================================================
+
+        if e_numbers:
+
+            st.subheader("🧬 E-Numbers")
+
+            st.warning(", ".join(set(e_numbers)))
 
         # =====================================================
         # SCORE
@@ -507,7 +583,7 @@ if image is not None:
 
                 st.error(
                     f"""
-{ingredient_name}
+Ingredient: {ingredient_name}
 
 Category: {data['category']}
 Risk: {risk_text}
@@ -523,6 +599,14 @@ Danger: {data['level'].upper()}
         else:
 
             st.success(t["safe"])
+
+        # =====================================================
+        # REPLACEMENT
+        # =====================================================
+
+        st.subheader(f"🥦 {t['replacement']}")
+
+        st.success(replacement)
 
         # =====================================================
         # ALLERGENS
@@ -543,7 +627,7 @@ Danger: {data['level'].upper()}
         # NUTRITION
         # =====================================================
 
-        st.subheader(f"🥦 {t['nutrition']}")
+        st.subheader(f"🥗 {t['nutrition']}")
 
         nutrition_notes = []
 
@@ -582,7 +666,7 @@ Danger: {data['level'].upper()}
 
         st.subheader(f"📦 {t['ocr_detection']}")
 
-        img_array = np.array(image)
+        img_array = np.array(image).copy()
 
         for detection in ocr_results:
 
@@ -613,16 +697,18 @@ Danger: {data['level'].upper()}
         # HISTORY
         # =====================================================
 
+        st.session_state.history.append({
+            "Date": datetime.now(),
+            "Score": score,
+            "Risk": risk,
+            "Detected Ingredients": len(harmful_found)
+        })
+
         st.subheader(f"📁 {t['history']}")
 
-        history_data = {
-            "Date": [datetime.now()],
-            "Score": [score],
-            "Risk": [risk],
-            "Detected Ingredients": [len(harmful_found)]
-        }
-
-        history_df = pd.DataFrame(history_data)
+        history_df = pd.DataFrame(
+            st.session_state.history
+        )
 
         st.dataframe(
             history_df,
@@ -644,8 +730,9 @@ Features:
 - Harmful ingredient detection
 - Health score
 - Allergen detection
+- Product replacement
 - Camera support
 - Multi-language
-- Streamlit Cloud optimized
+- Streamlit optimized
 """
 )
