@@ -1,9 +1,6 @@
 streamlit
-easyocr
-opencv-python-headless
 numpy
 pillow
+opencv-python-headless
 pandas
-wikipedia
-torch
-torchvision
+pytesseract
